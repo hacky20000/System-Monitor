@@ -1,31 +1,31 @@
 #!/bin/bash
 
-# تعريف الألوان لتحسين واجهة الإخراج
+# Color definitions for output formatting
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# تعريف مسار ملف الـ Log
+# Define log file path
 LOG_FILE="$HOME/system_monitor.log"
 
-# تعريف مسار مجلد التقارير
+# Define reports directory path
 REPORTS_DIR="$HOME/reports"
 
-# تعريف الحد الأقصى لاستخدام CPU و RAM و Disk (نسبة مئوية)
+# Define thresholds for CPU, RAM, and Disk usage (in percentage)
 CPU_THRESHOLD=80
 RAM_THRESHOLD=80
 DISK_THRESHOLD=80
 
-# دالة لتسجيل الأحداث في ملف الـ Log
+# Function to log events
 log_event() {
     local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
-    echo "[$timestamp] $1" >> "$LOG_FILE" 2>/dev/null
+    echo "[$timestamp] $1" >> "$LOG_FILE"
     echo -e "${YELLOW}[$timestamp] $1${NC}"
 }
 
-# دالة لإنشاء تقرير نصي
+# Function to create a text report
 create_report() {
     local report_file="$REPORTS_DIR/system_report_$(date "+%Y%m%d_%H%M%S").txt"
     local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
@@ -35,7 +35,7 @@ create_report() {
         echo "=========================================="
         echo ""
         echo "=== System Monitor Log Entries ==="
-        grep "$timestamp" "$LOG_FILE" 2>/dev/null || echo "No log entries available for this timestamp."
+        grep "$timestamp" "$LOG_FILE"
         echo ""
         echo "=== Detailed System Check Results ==="
         echo "$FULL_CHECK_OUTPUT"
@@ -46,55 +46,33 @@ create_report() {
         echo -e "${GREEN}Report saved to: $report_file${NC}"
         log_event "Full system check report saved to $report_file"
     else
-        echo -e "${RED}Error: Failed to save report to $report_file. Check permissions or disk space.${NC}"
+        echo -e "${RED}Error: Failed to save report to $report_file. Check permissions.${NC}"
         log_event "ERROR: Failed to save report to $report_file."
-        # محاولة حفظ التقرير في مسار بديل
-        report_file="/tmp/system_report_$(date "+%Y%m%d_%H%M%S").txt"
-        {
-            echo "SYSTEM MONITOR - Full System Check Report"
-            echo "Generated on: $timestamp"
-            echo "=========================================="
-            echo ""
-            echo "=== System Monitor Log Entries ==="
-            grep "$timestamp" "$LOG_FILE" 2>/dev/null || echo "No log entries available for this timestamp."
-            echo ""
-            echo "=== Detailed System Check Results ==="
-            echo "$FULL_CHECK_OUTPUT"
-            echo "=========================================="
-            echo "End of Report"
-        } > "$report_file" 2>/dev/null
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}Alternative report saved to: $report_file${NC}"
-            log_event "Alternative report saved to $report_file"
-        else
-            echo -e "${RED}Error: Failed to save report to alternative path $report_file.${NC}"
-            log_event "ERROR: Failed to save report to alternative path $report_file."
-        fi
     fi
 }
 
-# دالة لفحص استخدام CPU
+# Function to check CPU usage
 check_cpu_usage() {
     local cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
     cpu_usage=$(echo "$cpu_usage" | awk '{printf "%.0f", $1}')
     echo -e "CPU Usage: ${GREEN}$cpu_usage%${NC}"
     if [ "$cpu_usage" -gt "$CPU_THRESHOLD" ]; then
-        log_event "WARNING: CPU usage exceeded threshold - $cpu_usage percent is greater than $CPU_THRESHOLD percent"
+        log_event "WARNING: CPU usage exceeded threshold - $cpu_usage% > $CPU_THRESHOLD%"
     fi
 }
 
-# دالة لفحص استخدام RAM
+# Function to check RAM usage
 check_ram_usage() {
     local ram_total=$(free | grep Mem | awk '{print $2}')
     local ram_used=$(free | grep Mem | awk '{print $3}')
     local ram_usage=$((ram_used * 100 / ram_total))
     echo -e "RAM Usage: ${GREEN}$ram_usage%${NC}"
     if [ "$ram_usage" -gt "$RAM_THRESHOLD" ]; then
-        log_event "WARNING: RAM usage exceeded threshold - $ram_usage percent is greater than $RAM_THRESHOLD percent"
+        log_event "WARNING: RAM usage exceeded threshold - $ram_usage% > $RAM_THRESHOLD%"
     fi
 }
 
-# دالة لفحص حالة الخدمات باستخدام pidof
+# Function to check service status using pidof
 check_service_status() {
     local service_name="$1"
     local process_name="$service_name"
@@ -113,14 +91,14 @@ check_service_status() {
     fi
 }
 
-# دالة لعرض العمليات التي تستهلك موارد عالية
+# Function to show top processes
 check_top_processes() {
     echo -e "${YELLOW}Top 5 CPU consuming processes:${NC}"
     ps -eo pid,ppid,cmd,%cpu --sort=-%cpu | head -n 6
     log_event "Checked top CPU consuming processes."
 }
 
-# دالة لعرض معلومات النظام الأساسية
+# Function to show system information
 show_system_info() {
     echo -e "${YELLOW}System Information:${NC}"
     echo "Hostname: $(hostname)"
@@ -130,7 +108,7 @@ show_system_info() {
     log_event "Displayed system information."
 }
 
-# دالة لعرض معلومات الجهاز (الأجهزة المادية)
+# Function to show hardware information
 show_hardware_info() {
     echo -e "${YELLOW}Hardware Information:${NC}"
     echo "CPU Model: $(lscpu | grep 'Model name' | awk -F: '{print $2}' | xargs)"
@@ -146,7 +124,7 @@ show_hardware_info() {
     log_event "Displayed hardware information."
 }
 
-# دالة لفحص استخدام القرص
+# Function to check disk usage
 check_disk_usage() {
     echo -e "${YELLOW}Disk Usage Information:${NC}"
     df -h | grep -E '^/dev/' | while read -r line; do
@@ -154,7 +132,7 @@ check_disk_usage() {
         local mount_point=$(echo "$line" | awk '{print $6}')
         if [ "$disk_usage" -gt "$DISK_THRESHOLD" ]; then
             echo -e "Mount Point: $mount_point - Usage: ${RED}$disk_usage%${NC} (Exceeded threshold)"
-            log_event "WARNING: Disk usage on $mount_point exceeded threshold - $disk_usage percent is greater than $DISK_THRESHOLD percent"
+            log_event "WARNING: Disk usage on $mount_point exceeded threshold - $disk_usage% > $DISK_THRESHOLD%"
         else
             echo -e "Mount Point: $mount_point - Usage: ${GREEN}$disk_usage%${NC}"
         fi
@@ -162,7 +140,7 @@ check_disk_usage() {
     log_event "Checked disk usage."
 }
 
-# دالة لعرض عدد المجلدات والملفات في الدليل المنزلي
+# Function to check files and folders in home directory
 check_files_folders() {
     echo -e "${YELLOW}Files and Folders in Home Directory:${NC}"
     local home_dir="$HOME"
@@ -176,7 +154,7 @@ check_files_folders() {
     log_event "Checked files and folders in home directory."
 }
 
-# دالة لعرض حالة الشبكة
+# Function to check network status
 check_network_status() {
     echo -e "${YELLOW}Network Status:${NC}"
     if command -v ip >/dev/null 2>&1; then
@@ -201,7 +179,7 @@ check_network_status() {
     log_event "Checked network status."
 }
 
-# دالة لعرض درجة حرارة المعالج (إذا كانت مدعومة)
+# Function to check CPU temperature
 check_cpu_temperature() {
     echo -e "${YELLOW}CPU Temperature:${NC}"
     if command -v sensors >/dev/null 2>&1; then
@@ -213,7 +191,7 @@ check_cpu_temperature() {
     fi
 }
 
-# دالة لعرض المستخدمين المتصلين (تجربة أوامر بديلة)
+# Function to check connected users
 check_connected_users() {
     echo -e "${YELLOW}Connected Users:${NC}"
     if command -v who >/dev/null 2>&1; then
@@ -242,7 +220,7 @@ check_connected_users() {
     fi
 }
 
-# دالة لفحص الملفات المشبوهة (ميزة أمنية)
+# Function to check suspicious files (security)
 check_suspicious_files() {
     echo -e "${YELLOW}Security Check: Suspicious Files:${NC}"
     local home_dir="$HOME"
@@ -289,7 +267,7 @@ check_suspicious_files() {
     log_event "Completed suspicious files check."
 }
 
-# دالة لفحص العمليات المشبوهة (ميزة أمنية)
+# Function to check suspicious processes (security)
 check_suspicious_processes() {
     echo -e "${YELLOW}Security Check: Suspicious Processes:${NC}"
     echo -e "${YELLOW}1. Processes Running as 'root' (if accessible):${NC}"
@@ -310,7 +288,7 @@ check_suspicious_processes() {
     log_event "Completed suspicious processes check."
 }
 
-# دالة لفحص محاولات تسجيل الدخول الفاشلة (ميزة أمنية)
+# Function to check failed login attempts (security)
 check_failed_logins() {
     echo -e "${YELLOW}Security Check: Failed Login Attempts:${NC}"
     local log_files="/var/log/auth.log /var/log/secure"
@@ -336,7 +314,7 @@ check_failed_logins() {
     log_event "Completed failed login attempts check."
 }
 
-# دالة لفحص المنافذ المفتوحة (ميزة أمنية)
+# Function to check open ports (security)
 check_open_ports() {
     echo -e "${YELLOW}Security Check: Open Ports:${NC}"
     if command -v netstat >/dev/null 2>&1; then
@@ -359,7 +337,7 @@ check_open_ports() {
     log_event "Completed open ports check."
 }
 
-# دالة لمراقبة حركة الشبكة (ميزة أمنية)
+# Function to monitor network traffic (security)
 check_network_traffic() {
     echo -e "${YELLOW}Security Check: Network Traffic Monitoring:${NC}"
     if command -v iftop >/dev/null 2>&1; then
@@ -407,7 +385,7 @@ check_network_traffic() {
     log_event "Completed network traffic monitoring check."
 }
 
-# دالة لعرض الشعار ومعلومات المطور
+# Function to display logo and developer info
 show_logo() {
     clear
     if command -v figlet &> /dev/null; then
@@ -421,13 +399,13 @@ show_logo() {
     fi
     echo -e "${GREEN}=== System Monitoring Tool ===${NC}"
     echo -e "${YELLOW}Developer: Jobran Qubaty${NC}"
-    echo -e "${YELLOW}Email: algaber3000@hotmail.com${NC}"
+    echo -e "${YELLOW}Email: aljabery2013@gmail.com${NC}"
     echo -e "${YELLOW}Organization: Yemen Cyber Security${NC}"
     echo -e "${CYAN}=================================${NC}"
     sleep 2
 }
 
-# دالة لعرض القائمة التفاعلية
+# Function to display the interactive menu
 show_menu() {
     clear
     if command -v figlet &> /dev/null; then
@@ -440,7 +418,7 @@ show_menu() {
         echo -e "=================================${NC}"
     fi
     echo -e "${GREEN}=== System Monitoring Tool ===${NC}"
-    echo -e "${YELLOW}Developer: Jobran Qubaty.            https://github.com/hacky20000/${NC}"
+    echo -e "${YELLOW}Developer: Jobran Qubaty${NC}"
     echo -e "${CYAN}=================================${NC}"
     echo "1. Check CPU Usage"
     echo "2. Check RAM Usage"
@@ -461,10 +439,11 @@ show_menu() {
     echo "17. Check Network Traffic (Security)"
     echo "18. Run Full System Check"
     echo "19. Exit"
-    echo -e "${YELLOW}Enter your choice (1-19):${NC}"
+    echo "20. Update"
+    echo -e "${YELLOW}Enter your choice (1-20):${NC}"
 }
 
-# التأكد من إنشاء ملف الـ Log قبل أي عملية كتابة
+# Ensure the log file is created before any writing
 if [ ! -f "$LOG_FILE" ]; then
     touch "$LOG_FILE" 2>/dev/null
     if [ $? -ne 0 ]; then
@@ -477,10 +456,10 @@ if [ ! -f "$LOG_FILE" ]; then
         fi
     fi
     chmod 640 "$LOG_FILE" 2>/dev/null
-    echo "[$(date "+%Y-%m-%d %H:%M:%S")] Log file created." >> "$LOG_FILE" 2>/dev/null
+    echo "[$(date "+%Y-%m-%d %H:%M:%S")] Log file created." >> "$LOG_FILE"
 fi
 
-# التأكد من إنشاء مجلد التقارير
+# Ensure the reports directory is created
 if [ ! -d "$REPORTS_DIR" ]; then
     mkdir -p "$REPORTS_DIR" 2>/dev/null
     if [ $? -ne 0 ]; then
@@ -498,10 +477,50 @@ if [ ! -d "$REPORTS_DIR" ]; then
     fi
 fi
 
-# عرض الشعار عند بدء التشغيل
+# Display the logo at startup
 show_logo
 
-# الحلقة الرئيسية للواجهة التفاعلية
+# Function to update the script from GitHub
+update_script() {
+    echo -e "${YELLOW}Checking for updates from GitHub...${NC}"
+    local script_url="https://raw.githubusercontent.com/hacky20000/system_monitor/main/system_monitor.sh"
+    local temp_script="/tmp/system_monitor_update.sh"
+
+    if ! curl -s "$script_url" -o "$temp_script"; then
+        echo -e "${RED}Error: Failed to download the latest version from GitHub.${NC}"
+        log_event "ERROR: Failed to update script from GitHub."
+        return 1
+    fi
+
+    if [ ! -f "$temp_script" ]; then
+        echo -e "${RED}Error: Update file not found. Check your internet connection.${NC}"
+        log_event "ERROR: Update file not found."
+        return 1
+    fi
+
+    echo -e "${GREEN}New version downloaded. Replacing current script...${NC}"
+    if [ "$0" = "$temp_script" ]; then
+        echo -e "${RED}Error: Cannot replace this script because it is being executed. Please run the update from a separate instance.${NC}"
+        log_event "ERROR: Update failed - script is being executed."
+        return 1
+    fi
+
+    if [ -f "$0" ]; then
+        if ! mv "$temp_script" "$0"; then
+            echo -e "${RED}Error: Failed to replace the script. Check permissions or try running with sudo.${NC}"
+            log_event "ERROR: Failed to replace script file."
+            return 1
+        fi
+        echo -e "${GREEN}Update successful! Please restart the script to apply changes.${NC}"
+        log_event "Update completed successfully."
+    else
+        echo -e "${RED}Error: Current script file not found at $0. Update failed.${NC}"
+        log_event "ERROR: Script file not found. Update failed."
+        return 1
+    fi
+}
+
+# Main interactive loop
 FULL_CHECK_OUTPUT=""
 while true; do
     show_menu
@@ -622,9 +641,8 @@ while true; do
             if [ -d "$REPORTS_DIR" ]; then
                 create_report
             else
-                echo -e "${RED}Error: Reports directory not available. Attempting alternative save...${NC}"
-                log_event "ERROR: Reports directory not available. Attempting alternative save."
-                create_report
+                echo -e "${RED}Error: Reports directory not available. Report will not be saved.${NC}"
+                log_event "ERROR: Reports directory not available. Report not saved."
             fi
             ;;
         19)
@@ -632,8 +650,11 @@ while true; do
             log_event "Script terminated by user."
             exit 0
             ;;
+        20)
+            update_script
+            ;;
         *)
-            echo -e "${RED}Invalid choice! Please select a number between 1 and 19.${NC}"
+            echo -e "${RED}Invalid choice! Please select a number between 1 and 20.${NC}"
             ;;
     esac
     echo -e "${YELLOW}Press Enter to continue...${NC}"
